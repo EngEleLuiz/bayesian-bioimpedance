@@ -38,7 +38,7 @@ Associated paper submitted to *Biomedical Signal Processing and Control* (Elsevi
 ## Installation
 
 ```bash
-git clone https://github.com/[USERNAME]/bayesian-bioimpedance.git
+git clone https://github.com/EngEleLuiz/bayesian-bioimpedance
 cd bayesian-bioimpedance
 
 python3 -m venv venv
