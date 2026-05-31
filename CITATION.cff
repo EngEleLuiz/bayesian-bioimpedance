@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "Se usar este software, cite conforme abaixo."
+type: software
+title: "Bayesian Bioimpedance — EEL410279 PPGEEL-UFSC"
+version: 1.0.0
+date-released: 2026-05-28
+license: MIT
+repository-code: "https://github.com/[USERNAME]/bioimpedancia-bayesiana"
+abstract: >
+  Bayesian parameter estimation and tissue state classification for
+  bioelectrical impedance spectroscopy via Adaptive Metropolis MCMC,
+  WAIC/PSIS-LOO model comparison, and IS-Posterior classification.
+authors:
+  - family-names: "[Sobrenome]"
+    given-names: "[Nome]"
+    affiliation: "PPGEEL-UFSC"
+  - family-names: "Pintarelli"
+    given-names: "Guilherme B."
+    affiliation: "PPGEEL-UFSC"
+    email: guilherme.pintarelli@ufsc.br
+keywords:
+  - bioimpedance
+  - EIS
+  - Bayesian inference
+  - MCMC
+  - Cole-Cole model
+  - tissue classification
+preferred-citation:
+  type: article
+  title: >
+    Bayesian Parameter Estimation and Tissue State Classification
+    for Bioelectrical Impedance Spectroscopy
+  journal: "Biomedical Signal Processing and Control"
+  year: 2026
+  status: submitted

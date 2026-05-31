@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+env/
+.venv/
+
+# Resultados (não versionar imagens geradas)
+resultados*/
+*.png
+*.pdf
+*.log
+
+# Dados locais do usuário
+data/cache/
+data/raw/*.csv
+data/raw/*.xlsx
+!data/raw/.gitkeep
+!data/cache/.gitkeep
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
