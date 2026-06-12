@@ -1,6 +1,4 @@
 """
-main_real_data.py
-=================
 Pipeline de validação com dados reais públicos.
 
 Executa o framework Bayesiano completo em dados experimentais reais de
