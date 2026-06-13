@@ -1,9 +1,4 @@
 """
-main_ext24.py  v2 — Extensões 2 e 4 com IS-Posterior Classifier
-================================================================
-EXT.2: Comparação WAIC/LOO de 4 modelos de circuito equivalente
-EXT.4: Classificação de estados teciduais via IS-Posterior (2 estágios)
-
 Uso:
     python main_ext24.py                      # completo (lento ~30-60 min)
     python main_ext24.py --rapido             # teste rápido (~5 min)

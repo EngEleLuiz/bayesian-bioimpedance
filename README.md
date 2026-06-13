@@ -14,7 +14,7 @@ This repository provides a fully Bayesian pipeline for EIS analysis of biologica
 - **Calibration assessment** via reliability diagrams and Expected Calibration Error (ECE)
 - **Real data validation** using three open-access public datasets
 
-Associated paper submitted to *Biomedical Signal Processing and Control* (Elsevier).
+Associated paper submitted to *xxxx*.
 
 ---
 
@@ -38,7 +38,7 @@ Associated paper submitted to *Biomedical Signal Processing and Control* (Elsevi
 ## Installation
 
 ```bash
-git clone https://github.com/[USERNAME]/bayesian-bioimpedance.git
+git clone https://github.com/EngEleLuiz/bayesian-bioimpedance
 cd bayesian-bioimpedance
 
 python3 -m venv venv
