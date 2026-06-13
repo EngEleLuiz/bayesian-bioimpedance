@@ -1,17 +1,6 @@
 """
 tissue_states.py
 ================
-Classificador Bayesiano de estados teciduais — versão corrigida.
-
-CORREÇÕES APLICADAS (v2):
-    1. Parâmetros realistas com sobreposição clínica real (Cohen d 0.7–1.3)
-       → antes: Cohen d=5.2–5.7 (trivialmente separável, overfitting garantido)
-    2. σ_log aumentado para refletir variabilidade inter-sujeito real (~30–40%)
-    3. Marginal likelihood via log-sum-exp numericamente estável
-    4. Estudo de simulação com hold-out separado (sem vazamento treino/teste)
-    5. Análise de calibração: reliability diagram + Expected Calibration Error (ECE)
-    6. SNR sensitivity com detecção de colapso para prior uniforme
-
 Parâmetros dos estados (Cole-Cole, tecido muscular):
     NORMAL   — Gabriel et al. (1996); IT'IS Foundation
     EDEMA    — Morimoto et al. (1993); ACS Measurement Sci. Au (2022)
@@ -473,15 +462,17 @@ def snr_sensitivity_classification(f, snr_levels=None,
         result = simulation_study(f, snr_db=snr,
                                   n_per_state=n_per_state,
                                   n_mc=n_mc, seed=seed)
-        auc_mean = float(np.mean(list(result["auc_roc"].values())))
-        results_by_snr[snr] = {
-            "accuracy":   result["accuracy"],
-            "auc_mean":   auc_mean,
-            "auc_roc":    result["auc_roc"],
-            "class_acc":  result["class_accuracy"],
-            "confusion":  result["confusion"],
-            "ece":        result["calibration"]["ece"],
+        auc_mean = float(np.mean(list(r["auc_roc"].values())))
+        ece      = r["calibration"]["ece"]          # inclui ECE
+        results[snr] = {
+            "accuracy":  r["accuracy"],
+            "auc_mean":  auc_mean,
+            "auc_roc":   r["auc_roc"],
+            "class_acc": r["class_accuracy"],
+            "confusion": r["confusion"],
+            "ece":       ece,                        
+            "n_test":    n_per_state * len(list(r["class_accuracy"].keys())),
         }
-        print(f"    Acurácia: {result['accuracy']*100:.1f}%  |  "
-              f"AUC médio: {auc_mean:.3f}  |  ECE: {result['calibration']['ece']:.3f}")
+        print(f"  Acurácia: {r['accuracy']*100:.1f}%  "
+              f"AUC médio: {auc_mean:.3f}  ECE: {ece:.3f}")
     return results_by_snr
