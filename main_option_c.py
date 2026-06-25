@@ -1,38 +1,3 @@
-"""
-main_option_c.py
-================
-Pipeline da Opção C: validação honesta com modelo dielétrico completo
-de Gabriel (4-Cole-Cole) + ajuste de banda limitada (sub-banda β).
-
-ANTES DE RODAR — PASSO OBRIGATÓRIO
-====================================
-Os parâmetros completos de Δε_n, τ_n, α_n para cada tecido em
-`src/gabriel_4cc_model.py` (MUSCLE_4CC_PARTIAL) estão marcados como
-NÃO VERIFICADOS. Antes de usar este pipeline para o artigo final:
-
-  1. Acesse: https://www.fcc.gov/general/body-tissue-dielectric-parameters
-  2. Selecione o tecido "Muscle"
-  3. Para cada frequência da sua grade (ex.: 100 Hz, 215 Hz, 464 Hz, ...,
-     1 MHz — 30 pontos log-espaçados), anote ε' (Permittivity) e
-     σ (Conductivity, S/m)
-  4. Edite o arquivo `dados_fcc_consultados.csv` (gerado por
-     `--gerar-template`) com os valores reais consultados
-  5. Rode o pipeline com `--csv-fcc dados_fcc_consultados.csv`
-
-Isso elimina qualquer risco de erro de transcrição de parâmetros e
-torna a validação 100% rastreável à fonte oficial.
-
-Uso:
-    # Gerar template CSV para você preencher com a calculadora oficial
-    python main_option_c.py --gerar-template
-
-    # Rodar com dados reais consultados na FCC
-    python main_option_c.py --csv-fcc dados_fcc_consultados.csv
-
-    # Modo demonstração (usa parâmetros NÃO verificados — só para teste de código)
-    python main_option_c.py --demo --rapido
-"""
-
 import argparse
 import os
 import csv
