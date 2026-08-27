@@ -1,56 +1,48 @@
 """
 itis_database_loader.py
 ========================
-Carregador dos parâmetros de 4-Cole-Cole diretamente do banco de dados
-oficial da IT'IS Foundation (mesma fonte primária da calculadora FCC:
-Gabriel et al., 1996), via download local do ZIP oficial.
+Loads 4-Cole-Cole parameters directly from the official IT'IS Foundation
+tissue properties database (the same primary source used by the FCC
+calculator: Gabriel et al., 1996), via a locally downloaded ZIP file.
 
-POR QUE ESTA VERSÃO É MELHOR QUE A CONSULTA MANUAL (main_option_c.py v1)
-==========================================================================
-A versão anterior exigia consultar a calculadora FCC frequência por
-frequência (30 consultas manuais). Esta versão usa o banco de dados
-bruto da IT'IS Foundation, que contém os **14 parâmetros originais**
-(ε∞, σ_s, Δε₁₋₄, τ₁₋₄, α₁₋₄) para cada tecido — a mesma fonte primária
-usada pela calculadora da FCC, mas em formato tabular, baixável uma
-única vez.
+WHY THIS IS BETTER THAN THE MANUAL FCC LOOKUP (main_option_c.py v1)
+=====================================================================
+The previous approach required querying the FCC calculator frequency by
+frequency (30 manual lookups). This version uses the raw IT'IS Foundation
+database, which contains the 14 original parameters
+(eps_inf, sigma_s, delta_eps[1-4], tau[1-4], alpha[1-4]) for each tissue --
+the same primary source used by the FCC calculator, but in tabular form,
+downloaded once.
 
-Com os 14 parâmetros, geramos o espectro completo Z(f) em qualquer
-frequência automaticamente (sem necessidade de consultas pontuais).
+With the 14 parameters, the full spectrum Z(f) can be generated at any
+frequency automatically (no need for point-by-point lookups).
 
-PASSO A PASSO PARA OBTER O ARQUIVO (5 minutos, only uma vez)
-===============================================================
-1. Baixe o arquivo ZIP oficial (testado e acessível em 24/06/2026):
+HOW TO GET THE FILE (5 minutes, one time only)
+=================================================
+1. Download the official ZIP (verified reachable on 2026-06-24):
    https://itis.swiss/assets/Downloads/TissueDb/Database-V4-0.zip
-
-   (Página de referência: https://itis.swiss/virtual-population/tissue-properties/downloads)
-
-   Se este link não funcionar, tente a versão mais recente:
+   (Reference page: https://itis.swiss/virtual-population/tissue-properties/downloads)
+   If that link doesn't work, try the newer version:
    https://itis.swiss/virtual-population/tissue-properties/downloads/database-v5-0
 
-2. Extraia o ZIP. Dentro dele há uma pasta com arquivos em 3 formatos:
-   - .db   (para Sim4Life/SEMCAD X — não precisamos)
-   - .xlsx (Excel — RECOMENDADO, mais fácil de abrir)
+2. Extract the ZIP. It contains files in 3 formats:
+   - .db   (Sim4Life/SEMCAD X -- not needed here)
+   - .xlsx (Excel -- RECOMMENDED, easiest to open)
    - .txt/.csv (ASCII)
 
-3. Abra o arquivo Excel e procure a aba/planilha de
-   **"Dielectric Properties"** ou **"4-Cole-Cole"**.
+3. Open the Excel file and find the "Dielectric Properties" or
+   "4-Cole-Cole" sheet.
 
-4. Localize a linha do tecido **"Muscle"** (ou "Skeletal Muscle").
-   As colunas terão nomes como:
+4. Find the row for the tissue of interest, e.g. "Muscle"
+   (or "Skeletal Muscle"). Columns look like:
+   eps_inf, sigma_s, delta_eps1/tau1/alpha1 (alpha dispersion),
+   delta_eps2/tau2/alpha2 (beta), delta_eps3/tau3/alpha3 (delta),
+   delta_eps4/tau4/alpha4 (gamma).
 
-   | Coluna | Significado |
-   |---|---|
-   | ε∞ (eps_inf) | Permissividade em alta frequência |
-   | σ_s (sigma_s) | Condutividade iônica estática [S/m] |
-   | Δε1, τ1, α1 | Dispersão 1 (α — sub-Hz a Hz) |
-   | Δε2, τ2, α2 | Dispersão 2 (β — kHz, a que nos interessa) |
-   | Δε3, τ3, α3 | Dispersão 3 (δ — MHz) |
-   | Δε4, τ4, α4 | Dispersão 4 (γ — GHz, água livre) |
+5. Fill in these 14 values with build_tissue_params() below, or use
+   load_itis_csv() if you export the row to a CSV.
 
-5. Preencha esses 14 valores em `preencher_parametros_muscle()` abaixo,
-   ou use `carregar_de_csv_itis()` se exportar a linha para CSV.
-
-Referências:
+References:
     Gabriel, C. (1996). Compilation of the Dielectric Properties of Body
     Tissues at RF and Microwave Frequencies. Report AL/OE-TR-1996-0037,
     Brooks Air Force Base, Texas.
@@ -60,75 +52,47 @@ Referências:
     https://itis.swiss/virtual-population/tissue-properties/downloads
 """
 
-import numpy as np
 import csv
-from pathlib import Path
+import numpy as np
 from .gabriel_4cc_model import FourColeColeParams
 
+_TAU_UNIT_FACTOR = {"s": 1.0, "ms": 1e-3, "us": 1e-6, "ns": 1e-9, "ps": 1e-12}
 
-# ===========================================================================
-# OPÇÃO A — Preencher manualmente após consultar o Excel/ASCII baixado
-# ===========================================================================
 
-def preencher_parametros_tecido(
-    tissue_name: str,
-    eps_inf: float,
-    sigma_s: float,
+def build_tissue_params(
+    tissue_name: str, eps_inf: float, sigma_s: float,
     delta_eps_1: float, tau_1: float, alpha_1: float,
     delta_eps_2: float, tau_2: float, alpha_2: float,
     delta_eps_3: float, tau_3: float, alpha_3: float,
     delta_eps_4: float, tau_4: float, alpha_4: float,
-    tau_unit: str = "s"
+    tau_unit: str = "s",
 ) -> FourColeColeParams:
     """
-    Constrói os parâmetros de 4-Cole-Cole a partir dos 14 valores que
-    você leu diretamente da planilha oficial da IT'IS Foundation.
+    Build 4-Cole-Cole parameters from the 14 values read directly from
+    the official IT'IS Foundation spreadsheet.
 
-    IMPORTANTE sobre unidades de τ:
-    A planilha da IT'IS geralmente reporta τ em **picossegundos (ps)**
-    para as dispersões mais rápidas. Verifique o cabeçalho da coluna!
-    Se a planilha disser "tau (psec)", use tau_unit="ps".
-
-    Exemplo de uso (você preenche com os valores REAIS do Excel):
-
-        params = preencher_parametros_tecido(
-            tissue_name="muscle",
-            eps_inf=4.0,
-            sigma_s=0.2,
-            delta_eps_1=..., tau_1=..., alpha_1=0.10,   # ler do Excel
-            delta_eps_2=..., tau_2=..., alpha_2=0.10,   # ler do Excel
-            delta_eps_3=..., tau_3=..., alpha_3=0.22,   # ler do Excel
-            delta_eps_4=..., tau_4=..., alpha_4=0.00,   # ler do Excel
-            tau_unit="ps"   # ajustar conforme a planilha
-        )
+    IMPORTANT about tau units: the IT'IS spreadsheet usually reports tau
+    in picoseconds (ps) for the fastest dispersions. Check the column
+    header! If it says "tau (psec)", use tau_unit="ps".
     """
-    unit_factor = {"s": 1.0, "ms": 1e-3, "us": 1e-6, "ns": 1e-9, "ps": 1e-12}
-    if tau_unit not in unit_factor:
-        raise ValueError(f"tau_unit deve ser um de {list(unit_factor)}")
-    f = unit_factor[tau_unit]
+    if tau_unit not in _TAU_UNIT_FACTOR:
+        raise ValueError(f"tau_unit must be one of {list(_TAU_UNIT_FACTOR)}")
+    factor = _TAU_UNIT_FACTOR[tau_unit]
 
     return FourColeColeParams(
-        tissue_name=tissue_name,
-        eps_inf=eps_inf,
-        sigma_s=sigma_s,
+        tissue_name=tissue_name, eps_inf=eps_inf, sigma_s=sigma_s,
         delta_eps=[delta_eps_1, delta_eps_2, delta_eps_3, delta_eps_4],
-        tau=[tau_1 * f, tau_2 * f, tau_3 * f, tau_4 * f],
+        tau=[tau_1 * factor, tau_2 * factor, tau_3 * factor, tau_4 * factor],
         alpha=[alpha_1, alpha_2, alpha_3, alpha_4],
-        source=f"IT'IS Foundation Tissue Properties Database V4.0/V5.0 "
-                f"(Gabriel et al., 1996) — valores lidos manualmente da "
-                f"planilha oficial pelo usuário"
+        source="IT'IS Foundation Tissue Properties Database V4.0/V5.0 "
+               "(Gabriel et al., 1996) -- values read manually from the "
+               "official spreadsheet by the user",
+        verified=True,
     )
 
 
-# ===========================================================================
-# OPÇÃO B — Carregar de um CSV exportado da planilha (mais robusto)
-# ===========================================================================
-
-def gerar_template_csv_itis(filepath="parametros_itis_template.csv"):
-    """
-    Gera um CSV-template com as 14 colunas exatas que você deve copiar
-    da planilha oficial da IT'IS Foundation para o tecido de interesse.
-    """
+def generate_itis_csv_template(filepath="itis_params_template.csv"):
+    """Generate a CSV template with the 14 exact columns to copy from the IT'IS spreadsheet."""
     header = ["tissue_name", "eps_inf", "sigma_s",
               "delta_eps_1", "tau_1", "alpha_1",
               "delta_eps_2", "tau_2", "alpha_2",
@@ -138,121 +102,91 @@ def gerar_template_csv_itis(filepath="parametros_itis_template.csv"):
     with open(filepath, "w", newline="") as fh:
         writer = csv.writer(fh)
         writer.writerow(header)
-        writer.writerow(["muscle", "", "", "", "", "", "", "", "",
-                         "", "", "", "", "", "", "ps"])
-        writer.writerow(["liver", "", "", "", "", "", "", "", "",
-                         "", "", "", "", "", "", "ps"])
-        writer.writerow(["fat", "", "", "", "", "", "", "", "",
-                         "", "", "", "", "", "", "ps"])
+        for tissue in ("muscle", "liver", "fat"):
+            writer.writerow([tissue] + [""] * 14 + ["ps"])
 
-    print(f"\nTemplate salvo em: {filepath}")
-    print("\nPreencha cada linha com os 14 parâmetros lidos da planilha")
-    print("oficial da IT'IS Foundation (Database-V4-0.zip ou V5.0).")
-    print("Verifique a unidade de tau na planilha (geralmente ps) e")
-    print("ajuste a coluna 'tau_unit' se necessário.")
+    print(f"\nTemplate saved to: {filepath}")
+    print("\nFill each row with the 14 parameters read from the official")
+    print("IT'IS Foundation spreadsheet (Database-V4-0.zip or V5.0).")
+    print("Check the tau unit in the spreadsheet (usually ps) and adjust")
+    print("the 'tau_unit' column if needed.")
     return filepath
 
 
-def carregar_de_csv_itis(filepath: str) -> dict:
-    """
-    Carrega múltiplos tecidos de um CSV preenchido com os parâmetros
-    lidos da planilha oficial da IT'IS Foundation.
+def load_itis_csv(filepath: str) -> dict:
+    """Load multiple tissues from a CSV filled with IT'IS Foundation parameters.
 
-    Retorna dict {tissue_name: FourColeColeParams}
+    Returns dict {tissue_name: FourColeColeParams}.
     """
-    resultado = {}
+    result = {}
     with open(filepath, "r") as fh:
-        reader = csv.DictReader(fh)
-        for row in reader:
+        for row in csv.DictReader(fh):
             try:
-                p = preencher_parametros_tecido(
+                result[row["tissue_name"]] = build_tissue_params(
                     tissue_name=row["tissue_name"],
-                    eps_inf=float(row["eps_inf"]),
-                    sigma_s=float(row["sigma_s"]),
-                    delta_eps_1=float(row["delta_eps_1"]),
-                    tau_1=float(row["tau_1"]),
-                    alpha_1=float(row["alpha_1"]),
-                    delta_eps_2=float(row["delta_eps_2"]),
-                    tau_2=float(row["tau_2"]),
-                    alpha_2=float(row["alpha_2"]),
-                    delta_eps_3=float(row["delta_eps_3"]),
-                    tau_3=float(row["tau_3"]),
-                    alpha_3=float(row["alpha_3"]),
-                    delta_eps_4=float(row["delta_eps_4"]),
-                    tau_4=float(row["tau_4"]),
-                    alpha_4=float(row["alpha_4"]),
-                    tau_unit=row.get("tau_unit", "s") or "s"
+                    eps_inf=float(row["eps_inf"]), sigma_s=float(row["sigma_s"]),
+                    delta_eps_1=float(row["delta_eps_1"]), tau_1=float(row["tau_1"]), alpha_1=float(row["alpha_1"]),
+                    delta_eps_2=float(row["delta_eps_2"]), tau_2=float(row["tau_2"]), alpha_2=float(row["alpha_2"]),
+                    delta_eps_3=float(row["delta_eps_3"]), tau_3=float(row["tau_3"]), alpha_3=float(row["alpha_3"]),
+                    delta_eps_4=float(row["delta_eps_4"]), tau_4=float(row["tau_4"]), alpha_4=float(row["alpha_4"]),
+                    tau_unit=row.get("tau_unit", "s") or "s",
                 )
-                resultado[row["tissue_name"]] = p
             except (ValueError, KeyError) as e:
-                print(f"  [aviso] linha '{row.get('tissue_name','?')}' "
-                      f"incompleta ou inválida — pulando ({e})")
-                continue
+                print(f"  [warning] row '{row.get('tissue_name', '?')}' incomplete or invalid -- skipping ({e})")
 
-    if not resultado:
+    if not result:
         raise ValueError(
-            f"Nenhum tecido válido carregado de '{filepath}'. "
-            "Verifique se todas as 14 colunas numéricas estão preenchidas."
+            f"No valid tissue loaded from '{filepath}'. "
+            "Check that all 14 numeric columns are filled in."
         )
 
-    print(f"\n  {len(resultado)} tecido(s) carregado(s) de '{filepath}':")
-    for name in resultado:
+    print(f"\n  {len(result)} tissue(s) loaded from '{filepath}':")
+    for name in result:
         print(f"    - {name}")
-    return resultado
+    return result
 
 
-# ===========================================================================
-# Validação física básica dos parâmetros carregados
-# ===========================================================================
-
-def validar_parametros_fisicos(p: FourColeColeParams, verbose=True) -> bool:
+def validate_physical_parameters(p: FourColeColeParams, verbose: bool = True) -> bool:
     """
-    Verifica se os parâmetros carregados produzem um espectro
-    fisicamente válido (ε' monotonicamente decrescente, fase sempre
-    negativa). Detecta o tipo de erro identificado na rodada anterior
-    (fase positiva por erro de transcrição).
+    Check that the loaded parameters produce a physically valid spectrum
+    (eps' monotonically decreasing, phase always negative). Detects the
+    type of error found previously (positive phase from a transcription bug).
     """
     from .gabriel_4cc_model import conductivity_and_permittivity, impedance_from_4cc
 
     f_test = np.logspace(1, 9, 200)
     sigma, eps_real = conductivity_and_permittivity(f_test, p)
-    Z = impedance_from_4cc(f_test, p)
-    phase = np.angle(Z, deg=True)
+    phase = np.angle(impedance_from_4cc(f_test, p), deg=True)
 
-    problemas = []
+    issues = []
 
-    # ε' deve ser monotonicamente decrescente (ou no mínimo, não subir)
     d_eps = np.diff(eps_real)
-    n_subidas = np.sum(d_eps > eps_real[:-1] * 0.01)  # tolerância de 1%
-    if n_subidas > 2:  # pequenas flutuações numéricas são ok
-        problemas.append(
-            f"ε'(f) sobe em {n_subidas} pontos — deveria ser "
-            "monotonicamente decrescente. Possível erro de transcrição."
+    n_increases = np.sum(d_eps > eps_real[:-1] * 0.01)  # 1% tolerance
+    if n_increases > 2:  # small numerical fluctuations are fine
+        issues.append(
+            f"eps'(f) increases at {n_increases} points -- should be "
+            "monotonically decreasing. Possible transcription error."
         )
 
-    # Fase deve ser sempre ≤ 0 (sistema passivo RC)
-    n_fase_positiva = np.sum(phase > 0.5)  # tolerância numérica
-    if n_fase_positiva > 0:
-        idx_problema = np.where(phase > 0.5)[0]
-        f_problema = f_test[idx_problema]
-        problemas.append(
-            f"Fase positiva detectada em {n_fase_positiva} pontos "
-            f"(f≈{f_problema.min():.0f}–{f_problema.max():.0f} Hz). "
-            "Isso é fisicamente impossível para este modelo — "
-            "verifique sinais e unidades dos parâmetros transcritos."
+    n_positive_phase = np.sum(phase > 0.5)  # numerical tolerance
+    if n_positive_phase > 0:
+        f_bad = f_test[phase > 0.5]
+        issues.append(
+            f"Positive phase detected at {n_positive_phase} points "
+            f"(f~{f_bad.min():.0f}-{f_bad.max():.0f} Hz). This is "
+            "physically impossible for this model -- check the signs "
+            "and units of the transcribed parameters."
         )
 
-    # σ deve ser positivo e finito
     if np.any(sigma <= 0) or np.any(~np.isfinite(sigma)):
-        problemas.append("σ(f) negativo, zero ou não-finito em algum ponto.")
+        issues.append("sigma(f) is negative, zero, or non-finite at some point.")
 
     if verbose:
-        if problemas:
-            print(f"\n  ⚠️  PROBLEMAS DETECTADOS em '{p.tissue_name}':")
-            for prob in problemas:
-                print(f"    - {prob}")
+        if issues:
+            print(f"\n  ISSUES DETECTED in '{p.tissue_name}':")
+            for issue in issues:
+                print(f"    - {issue}")
         else:
-            print(f"\n  ✓ Parâmetros de '{p.tissue_name}' passaram na "
-                  "validação física básica.")
+            print(f"\n  '{p.tissue_name}' parameters passed basic physical validation.")
 
-    return len(problemas) == 0
+    return not issues
